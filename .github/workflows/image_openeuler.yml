@@ -9,7 +9,7 @@ name: 'image / openEuler'
 #   - commits are merge into main/*-dev  ==> vllm-ascend:main / vllm-ascend:*-dev
 # 3. tags push trigger image publish
 #   - is for final release image
-#   - Publish when tag with v* (pep440 version)  ===>  vllm-ascend:v1.2.3-openeuler|latest / vllm-ascend:v1.2.3rc1-openeuler
+#   - Publish when tag with v* (pep440 version)  ===>  vllm-ascend:v1.2.3-openeuler|vllm-ascend:v1.2.3rc1-openeuler
 on:
   pull_request:
     branches:
@@ -46,6 +46,8 @@ jobs:
           'ubuntu-latest' ||
           'ubuntu-24.04-arm'
       }}
+    output:
+      tags: ${{ steps.set-outputs.outputs.tags }}
     steps:
     - uses: actions/checkout@v4
 
@@ -65,7 +67,7 @@ jobs:
         # 1. branch job pulish per main/*-dev branch commits
         # 2. main and dev pull_request is build only, so the tag pr-N-openeuler is fine
         # 3. only pep440 matched tag will be published:
-        #    - v0.7.1 --> v0.7.1-openeuler, latest
+        #    - v0.7.1 --> v0.7.1-openeuler
         #    - pre/post/dev: v0.7.1rc1-openeuler/v0.7.1rc1-openeuler/v0.7.1rc1.dev1-openeuler/v0.7.1.post1-openeuler, no latest
         #      which follow the rule from vLLM with prefix v
         # TODO(yikun): the post release might be considered as latest release
@@ -73,6 +75,13 @@ jobs:
           type=ref,event=branch,suffix=-openeuler
           type=ref,event=pr,suffix=-openeuler
           type=pep440,pattern={{raw}},suffix=-openeuler
+        flavor:
+          latest=false
+
+    - name: Set tags output
+      id: set-outputs
+      run: |
+        echo "tags=${{ steps.meta.outputs.tags }}" >> $GITHUB_OUTPUT
 
     - name: Free up disk space
       uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
@@ -112,3 +121,32 @@ jobs:
         file: Dockerfile.openEuler
         build-args: |
           PIP_INDEX_URL=https://pypi.org/simple
+
+  sync:
+    name: vllm-ascend image sync
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'push' && github.repository_owner == 'vllm-project' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install skopeo
+        run: |
+          sudo apt update
+          sudo apt install -y skopeo
+
+      - name: Login to Huawei Cloud SWR
+        run: |
+          echo "${{ secrets.SWR_PASSWORD }}" | skopeo login \
+            --username "${{ vars.SWR_USERNAME }}" \
+            --password-stdin \
+            swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci
+
+      - name: Sync image to swr
+        run: |
+          FULL_TAG="${{ needs.build.outputs.tags }}"
+          TAG="${FULL_TAG##*:}"
+          skopeo copy --all \
+            docker://quay.io/ascend/vllm-ascend:$TAG \
+            docker://swr.cn-southwest-2.myhuaweicloud.com/base_image/ascend-ci/vllm-ascend:$TAG
