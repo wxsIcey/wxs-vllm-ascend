@@ -43,23 +43,25 @@ jobs:
     runs-on: >-
       ${{
           github.event_name == 'push' && github.repository_owner == 'vllm-project' &&
-          'ubuntu-latest' ||
-          'ubuntu-24.04-arm'
+          'linux_x86_64_wxs' ||
+          'ubuntu-22.04-arm'
       }}
+    outputs:
+      tags: ${{ steps.set-outputs.outputs.tags }}
+
     steps:
     - uses: actions/checkout@v4
 
     - name: Print
       run: |
         lscpu
-
     - name: Docker meta
       id: meta
       uses: docker/metadata-action@v5
       with:
         # TODO(yikun): add more hub image and a note on release policy for container image
         images: |
-          quay.io/ascend/vllm-ascend
+          quay.io/wxsicey/vllm-ascend
         # Note for test case
         # https://github.com/marketplace/actions/docker-metadata-action#typeref
         # 1. branch job pulish per main/*-dev branch commits
@@ -71,9 +73,15 @@ jobs:
         # TODO(yikun): the post release might be considered as latest release
         tags: |
           type=ref,event=branch,suffix=-310p-openeuler
-          type=ref,event=pr,suffix=-openeuler
+          type=ref,event=pr,suffix=-310p-openeuler
           type=pep440,pattern={{raw}},suffix=-310p-openeuler
+        flavor:
+          latest=false
 
+    - name: Set tags output
+      id: set-outputs
+      run: |
+        echo "tags=${{ steps.meta.outputs.tags }}" >> $GITHUB_OUTPUT
     - name: Free up disk space
       uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
       with:
@@ -87,28 +95,62 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: Publish - Login to Quay Container Registry
-      if: ${{ github.event_name == 'push' && github.repository_owner == 'vllm-project' }}
+      if: ${{ github.event_name == 'push'}}
       uses: docker/login-action@v3
       with:
         registry: quay.io
-        username: ${{ vars.QUAY_USERNAME }}
-        password: ${{ secrets.QUAY_PASSWORD }}
+        username: ${{ secrets.QUAY_USERNAME }}
+        password: ${{ secrets.QUAY_TOKEN }}
 
     - name: Build and push 310p
       uses: docker/build-push-action@v6
       with:
         platforms: >-
           ${{
-              github.event_name == 'push' && github.repository_owner == 'vllm-project' &&
+              github.event_name == 'push' &&
               'linux/amd64,linux/arm64' ||
               'linux/arm64'
           }}
         # use the current repo path as the build context, ensure .git is contained
         context: .
         # only trigger when tag, branch/main push
-        push: ${{ github.event_name == 'push' && github.repository_owner == 'vllm-project' }}
+        push: ${{ github.event_name == 'push' }}
         labels: ${{ steps.meta.outputs.labels }}
         tags: ${{ steps.meta.outputs.tags }}
         file: Dockerfile.310p.openEuler
         build-args: |
           PIP_INDEX_URL=https://pypi.org/simple
+    
+  sync:
+    name: vllm-ascend image sync
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event_name == 'push' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install skopeo
+        run: |
+          sudo apt update
+          sudo apt install -y skopeo
+      - name: Login to Huawei Cloud SWR
+        run: |
+          echo "${{ secrets.ASCENDHUB_TOKEN }}" | skopeo login \
+            --username "${{ secrets.ASCENDHUB_USERNAME }}" \
+            --password-stdin \
+            swr.cn-north-4.myhuaweicloud.com/wxs_test
+      - name: Debug Tags
+        run: |
+          echo "Raw tags from build job: ${{ needs.build.outputs.tags }}"
+          if [ -z "${{ needs.build.outputs.tags }}" ]; then
+            echo "Error: No tags found"
+            exit 1
+          fi
+      - name: Sync image to swr
+        run: |
+          FULL_TAG="${{ needs.build.outputs.tags }}"
+          TAG="${FULL_TAG##*:}"
+          skopeo copy --all \
+            docker://quay.io/wxsicey/vllm-ascend:$TAG \
+            docker://swr.cn-north-4.myhuaweicloud.com/wxs_test/vllm-ascend:$TAG
