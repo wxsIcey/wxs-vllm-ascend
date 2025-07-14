@@ -46,7 +46,7 @@ jobs:
           'ubuntu-latest' ||
           'ubuntu-24.04-arm'
       }}
-    output:
+    outputs:
       tags: ${{ steps.set-outputs.outputs.tags }}
     steps:
     - uses: actions/checkout@v4

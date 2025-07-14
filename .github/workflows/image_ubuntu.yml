@@ -41,7 +41,7 @@ jobs:
   build:
     name: vllm-ascend image build
     runs-on: ubuntu-latest
-    output:
+    outputs:
       tags: ${{ steps.set-outputs.outputs.tags }}
 
     steps:
