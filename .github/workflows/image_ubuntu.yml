@@ -110,3 +110,4 @@ jobs:
         tags: ${{ steps.meta.outputs.tags }}
         build-args: |
           PIP_INDEX_URL=https://pypi.org/simple
+        provenance: false
