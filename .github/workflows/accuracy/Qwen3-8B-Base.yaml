@@ -1,0 +1,25 @@
+model_name: "Qwen/Qwen3-8B-Base"
+
+model_type: "vllm"
+
+model_run_args:
+  
+
+model_evaluation_args:
+  pretrained: "Qwen/Qwen3-8B-Base"
+  max_model_len: 4096
+  dtype: auto
+  tensor_parallel_size: 2
+  gpu_memory_utilization: 0.6
+
+tasks:
+- name: "gsm8k"
+  batch_size: auto
+  ground_truth: 0.83
+
+- name: "ceval-valid"
+  batch_size: 1
+  ground_truth: 0.82
+
+apply_chat_template: True
+fewshot_as_multiturn: True
