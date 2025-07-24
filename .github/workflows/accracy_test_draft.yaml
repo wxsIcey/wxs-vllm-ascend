@@ -109,7 +109,7 @@ jobs:
           contains(github.event.pull_request.labels.*.name, 'dense-accuracy-test') && steps.set_matrix_outputs.outputs.dense_accuracy_test_list ||
           contains(github.event.pull_request.labels.*.name, 'vl-accuracy-test') && steps.set_matrix_outputs.outputs.vl_accuracy_test_list ||
           contains(github.event.pull_request.labels.*.name, 'moe-accuracy-test') && steps.set_matrix_outputs.outputs.moe_accuracy_test_list
-        ) }}
+          ) }}
       fail-fast: false
 
     name: ${{ matrix.model_name }} accuracy
