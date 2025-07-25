@@ -80,7 +80,7 @@ jobs:
         VLLM_LOGGING_LEVEL: ERROR
         VLLM_USE_MODELSCOPE: True
     strategy:
-      matrix: 
+      matrix:
         vllm_version: [main, v0.9.2]
     steps:
       - name: Install packages
