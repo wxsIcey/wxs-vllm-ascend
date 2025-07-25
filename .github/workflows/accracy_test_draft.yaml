@@ -104,7 +104,7 @@ jobs:
           (github.event_name == 'workflow_dispatch' && (
             (github.event.inputs.models == 'all' && steps.parse-config.outputs.all_models) ||
             (format('["{0}"]', github.event.inputs.models))
-          ) ||
+          )) ||
           contains(github.event.pull_request.labels.*.name, 'accuracy-test') && steps.parse-config.outputs.accuracy_test ||
           contains(github.event.pull_request.labels.*.name, 'dense-accuracy-test') && steps.parse-config.outputs.dense_accuracy_test ||
           contains(github.event.pull_request.labels.*.name, 'vl-accuracy-test') && steps.parse-config.outputs.vl_accuracy_test ||
@@ -137,7 +137,7 @@ jobs:
           script: |
             const yaml = require('js-yaml');
             const fs = require('fs');
-            const config = yaml.load(fs.readFileSync('benchmarks/accuracy/config.yaml', 'utf8'));
+            const config = yaml.load(fs.readFileSync('./benchmarks/accuracy/config.yaml', 'utf8'));
             core.setOutput('schedule_models', JSON.stringify(config.schedule));
             core.setOutput('all_models', JSON.stringify(config['manual-input'].all));
             core.setOutput('accuracy_test', JSON.stringify(config.label['accuracy-test']));
@@ -269,7 +269,7 @@ jobs:
           echo "markdown_name=$markdown_name" >> $GITHUB_OUTPUT
           mkdir -p ./accuracy
           python ./benchmarks/accuracy/test_accuracy_and_report.py \
-          --model=${model_base_name} \
+          --model=${markdown_name} \
           --output "./accuracy/${markdown_name}.md" \
           --vllm_ascend_version "${{ env.GHA_VLLM_ASCEND_VERSION || github.ref }}" \
           --cann_version "${{ env.GHA_CANN_VERSION }}" \

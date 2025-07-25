@@ -1,7 +1,7 @@
 model_name: "Qwen/Qwen3-8B-Base"
 model_type: "vllm"
 
-model_evaluation_args:
+model_args:
   pretrained: "Qwen/Qwen3-8B-Base"
   max_model_len: 4096
   dtype: auto
@@ -19,4 +19,7 @@ tasks:
 
 apply_chat_template: True
 fewshot_as_multiturn: True
+parallel_mode: "TP"
+execution_mode: "ACLGraph"
 n-shot: 5
+num_fewshot: 5

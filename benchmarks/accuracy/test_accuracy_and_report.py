@@ -22,18 +22,25 @@ FILTER = {
     "mmmu_val": "acc,none",
 }
 
-def run_accuracy_test(queue, model, dataset, eval_config):
+def load_model_config(model):
+    """Load model configuration from YAML file."""
+    config_path = "./benchmarks/accuracy" / f"{model}.yaml"
+    with open(config_path, "r", encoding="utf-8") as f:
+        eval_config = yaml.safe_load(f)
+    return eval_config
+
+def run_accuracy_test(queue, model, dataset):
     try: 
+        eval_config = load_model_config(model)
         eval_params = {
             "model": eval_config.get("model_type"),
             "model_args": eval_config.get("model_args"),
             "tasks": dataset.get("name"),
             "apply_chat_template": eval_config.get("apply_chat_template"),
             "fewshot_as_multiturn": eval_config.get("fewshot_as_multiturn"),
-            "batch_size": eval_config.get("dataset").get("batch_size")
+            "batch_size": eval_config.get("dataset").get("batch_size"),
+            "num_fewshot": eval_config.get("num_fewshot"),
         }
-        if eval_config.get("model_type") == "vllm":
-            eval_params["num_fewshot"] = 5 
         results = lm_eval.simple_evaluate(**eval_params)
         print(f"Success: {model} on {dataset} ")
         measured_value = results["results"]
@@ -53,6 +60,32 @@ def generate_md(model_name, tasks_list, args, datasets):
     """Generate Markdown report with evaluation results"""
     # Format the run command
     model = model_name.split("/")[1]
+    eval_config = load_model_config(model)
+    model_type = eval_config.get("model_type")
+    pretrained = eval_config.get("model_args").get("pretrained")
+    max_model_len = eval_config.get("model_args").get("max_model_len")
+    dtype = eval_config.get("model_args").get("dtype")
+    dtype = eval_config.get("model_args").get("tensor_parallel_size")
+    gpu_memory_utilization = eval_config.get("model_args").get("gpu_memory_utilization")
+    num_fewshot = eval_config.get("num_fewshot")
+    n_shot = eval_config.get("n-shot")
+    
+    if eval_config.get("apply_chat_template") == True:
+        apply_chat_template = "--apply_chat_template"
+    else:
+        apply_chat_template = ""
+        
+    if eval_config.get("fewshot_as_multiturn") == True:
+        fewshot_as_multiturn = "--fewshot_as_multiturn"
+    else:
+        fewshot_as_multiturn = ""
+    
+    run_cmd = (
+        f"export MODEL_ARGS='pretrained={pretrained},max_model_len={max_model_len},dtype={dtype},"
+        f"tensor_parallel_size={tensor_parallel_size},gpu_memory_utilization={gpu_memory_utilization}'\n"
+        f"lm_eval --model {model_type} --model_args $MODEL_ARGS --tasks {datasets} \\\n"
+        f"{apply_chat_template} {fewshot_as_multiturn} {num_fewshot} --batch_size 1"
+    )
 
     # Version information section
     version_info = (
@@ -61,19 +94,35 @@ def generate_md(model_name, tasks_list, args, datasets):
         f"vLLM Ascend: {args.vllm_ascend_version} "
         f"([{args.vllm_ascend_commit}]({VLLM_ASCEND_URL + args.vllm_ascend_commit}))  "
     )
-        # Report header with system info
-    preamble = f"""# {model}
-{version_info}
-**Software Environment**: CANN: {args.cann_version}, PyTorch: {args.torch_version}, torch-npu: {args.torch_npu_version}  
-**Hardware Environment**: Atlas A2 Series  
-**Datasets**: {datasets}  
-**Parallel Mode**: {PARALLEL_MODE[model_name]}  
-**Execution Mode**: {EXECUTION_MODE[model_name]}  
-**Command**:  
-```bash
-{run_cmd}
-```
-  """
+    
+    # Report header with system info
+    preamble = f"""
+        # {model}
+
+        {version_info}
+
+        **Software Environment**:  
+        - CANN: {args.cann_version}  
+        - PyTorch: {args.torch_version}  
+        - torch-npu: {args.torch_npu_version}  
+
+        **Hardware Environment**:  
+        - Atlas A2 Series  
+
+        **Datasets**:  
+        {datasets}  
+
+        **Parallel Mode**:  
+        {eval_config.get("parallel_mode")}  
+
+        **Execution Mode**:  
+        {eval_config.get("execution_mode")}  
+
+        **Command**:  
+        ```bash
+        {run_cmd}
+        ```
+    """
 
     header = (
         "| Task                  | Filter | n-shot | Metric   | Value   | Stderr |\n"
@@ -104,7 +153,7 @@ def generate_md(model_name, tasks_list, args, datasets):
             row = (
                 f"| {task_name:<37} "
                 f"| {flt:<6} "
-                f"| {args.n_shot:6} "
+                f"| {n_shot:6} "
                 f"| {metric:<6} "
                 f"| {flag}{value:>5.4f} "
                 f"| ± {stderr:>5.4f} |"
@@ -152,19 +201,15 @@ def safe_md(args, accuracy, datasets):
 def main(args):
     accuracy = {}
     accuracy[args.model] = []
-    
     result_queue: Queue[float] = multiprocessing.Queue()
-    config_path = "benchmarks/accuracy" / f"{model}.yaml"
-    with open(config_path, "r", encoding="utf-8") as f:
-        eval_config = yaml.safe_load(f)
-    args.n_shot = eval_config.get("n-shot", 0)
+    eval_config = load_model_config(args.model)
     datasets = eval_config.get("tasks")
-    
     datasets_str = ", ".join([task["name"] for task in eval_config])
     for dataset in datasets:
+        dataset_name = dataset.get("name")
         ground_truth = dataset.get("ground_truth")
         p = multiprocessing.Process(
-            target=run_accuracy_test, args=(result_queue, args.model, dataset, eval_config)
+            target=run_accuracy_test, args=(result_queue, args.model, dataset)
         )
         p.start()
         p.join()
@@ -176,10 +221,10 @@ def main(args):
         time.sleep(10)
         result = result_queue.get()
         print(result)
-        if np.isclose(ground_truth, result[dataset.get("name")][FILTER[dataset.get("name")]], rtol=RTOL):
-            ACCURACY_FLAG[dataset] = "✅"
+        if np.isclose(ground_truth, result[dataset_name][FILTER[dataset_name]], rtol=RTOL):
+            ACCURACY_FLAG[dataset_name] = "✅"
         else:
-            ACCURACY_FLAG[dataset] = "❌"
+            ACCURACY_FLAG[dataset_name] = "❌"
         accuracy[args.model].append(result)
         print(accuracy)
         safe_md(args, accuracy, datasets_str)
