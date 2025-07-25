@@ -68,7 +68,6 @@ def generate_md(model_name, tasks_list, args, datasets):
     dtype = eval_config.get("model_args").get("tensor_parallel_size")
     gpu_memory_utilization = eval_config.get("model_args").get("gpu_memory_utilization")
     num_fewshot = eval_config.get("num_fewshot")
-    n_shot = eval_config.get("n-shot")
     
     if eval_config.get("apply_chat_template") == True:
         apply_chat_template = "--apply_chat_template"
@@ -153,7 +152,7 @@ def generate_md(model_name, tasks_list, args, datasets):
             row = (
                 f"| {task_name:<37} "
                 f"| {flt:<6} "
-                f"| {n_shot:6} "
+                f"| {num_fewshot:6} "
                 f"| {metric:<6} "
                 f"| {flag}{value:>5.4f} "
                 f"| ± {stderr:>5.4f} |"

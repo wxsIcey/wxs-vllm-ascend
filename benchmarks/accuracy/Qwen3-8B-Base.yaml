@@ -21,5 +21,4 @@ apply_chat_template: True
 fewshot_as_multiturn: True
 parallel_mode: "TP"
 execution_mode: "ACLGraph"
-n-shot: 5
 num_fewshot: 5
