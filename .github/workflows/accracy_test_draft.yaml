@@ -137,7 +137,7 @@ jobs:
           script: |
             const yaml = require('js-yaml');
             const fs = require('fs');
-            const config = yaml.load(fs.readFileSync('workflows/accuracy/config.yaml', 'utf8'));
+            const config = yaml.load(fs.readFileSync('benchmarks/accuracy/config.yaml', 'utf8'));
             core.setOutput('schedule_models', JSON.stringify(config.schedule));
             core.setOutput('all_models', JSON.stringify(config['manual-input'].all));
             core.setOutput('accuracy_test', JSON.stringify(config.label['accuracy-test']));
@@ -268,7 +268,7 @@ jobs:
           echo "markdown_name=$markdown_name"
           echo "markdown_name=$markdown_name" >> $GITHUB_OUTPUT
           mkdir -p ./accuracy
-          python ./workflows/accuracy/test_accuracy_and_report.py \
+          python ./benchmarks/accuracy/test_accuracy_and_report.py \
           --model=${model_base_name} \
           --output "./accuracy/${markdown_name}.md" \
           --vllm_ascend_version "${{ env.GHA_VLLM_ASCEND_VERSION || github.ref }}" \

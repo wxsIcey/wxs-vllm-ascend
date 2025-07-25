@@ -154,8 +154,7 @@ def main(args):
     accuracy[args.model] = []
     
     result_queue: Queue[float] = multiprocessing.Queue()
-    current_dir = Path(__file__).parent
-    config_path = current_dir / "workflows" / "accuracy" / f"{model}.yaml"
+    config_path = "benchmarks/accuracy" / f"{model}.yaml"
     with open(config_path, "r", encoding="utf-8") as f:
         eval_config = yaml.safe_load(f)
     args.n_shot = eval_config.get("n-shot", 0)
