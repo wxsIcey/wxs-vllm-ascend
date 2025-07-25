@@ -100,15 +100,15 @@ jobs:
         #   - vl-accuracy-test: vl-accuracy-test in accuracy/config.yaml
         #   - moe-accuracy-test: moe-accuracy-test in accuracy/config.yaml
         model_name: ${{ fromJSON(
-          (github.event_name == 'schedule' && steps.set_matrix_outputs.outputs.schedule_models_list) ||
+          (github.event_name == 'schedule' && steps.parse-config.outputs.schedule_models) ||
           (github.event_name == 'workflow_dispatch' && (
-            (github.event.inputs.models == 'all' && steps.set_matrix_outputs.outputs.manual_models_list) ||
+            (github.event.inputs.models == 'all' && steps.parse-config.outputs.all_models) ||
             (format('["{0}"]', github.event.inputs.models))
           ) ||
-          contains(github.event.pull_request.labels.*.name, 'accuracy-test') && steps.set_matrix_outputs.outputs.accuracy_test_list ||
-          contains(github.event.pull_request.labels.*.name, 'dense-accuracy-test') && steps.set_matrix_outputs.outputs.dense_accuracy_test_list ||
-          contains(github.event.pull_request.labels.*.name, 'vl-accuracy-test') && steps.set_matrix_outputs.outputs.vl_accuracy_test_list ||
-          contains(github.event.pull_request.labels.*.name, 'moe-accuracy-test') && steps.set_matrix_outputs.outputs.moe_accuracy_test_list
+          contains(github.event.pull_request.labels.*.name, 'accuracy-test') && steps.parse-config.outputs.accuracy_test ||
+          contains(github.event.pull_request.labels.*.name, 'dense-accuracy-test') && steps.parse-config.outputs.dense_accuracy_test ||
+          contains(github.event.pull_request.labels.*.name, 'vl-accuracy-test') && steps.parse-config.outputs.vl_accuracy_test ||
+          contains(github.event.pull_request.labels.*.name, 'moe-accuracy-test') && steps.parse-config.outputs.moe_accuracy_test
           ) }}
       fail-fast: false
 
@@ -132,30 +132,18 @@ jobs:
 
       - name: Parse config.yaml
         id: parse-config
-        run: |
-          sudo apt-get install -y yq
-          SCHEDULE_MODELS=$(yq e '.schedule | join(",")' workflows/accuracy/config.yaml)
-          ALL_MODELS=$(yq e '.manual-input.all | join(",")' workflows/accuracy/config.yaml)
-          ACCURACY_TEST=$(yq e '.label."accuracy-test" | join(",")' workflows/accuracy/config.yaml)
-          DENSE_ACCURACY_TEST=$(yq e '.label."dense-accuracy-test" | join(",")' workflows/accuracy/config.yaml)
-          VL_ACCURACY_TEST=$(yq e '.label."vl-accuracy-test" | join(",")' workflows/accuracy/config.yaml)
-          MOE_ACCURACY_TEST=$(yq e '.label."moe-accuracy-test" | join(",")' workflows/accuracy/config.yaml)
-          echo "schedule_models=${SCHEDULE_MODELS}" >> $GITHUB_OUTPUT
-          echo "all_models=${ALL_MODELS}" >> $GITHUB_OUTPUT
-          echo "accuracy_test=${ACCURACY_TEST}" >> $GITHUB_OUTPUT
-          echo "dense_accuracy_test=${DENSE_ACCURACY_TEST}" >> $GITHUB_OUTPUT
-          echo "vl_accuracy_test=${VL_ACCURACY_TEST}" >> $GITHUB_OUTPUT
-          echo "moe_accuracy_test=${MOE_ACCURACY_TEST}" >> $GITHUB_OUTPUT
-
-      - name: Set outputs for matrix
-        id: set_matrix_outputs
-        run: |
-          echo "schedule_models_list=$(echo '${{ steps.parse-config.outputs.schedule_models }}' | jq -R -s -c 'split(",")')" >> $GITHUB_OUTPUT
-          echo "all_models_list=$(echo '${{ steps.parse-config.outputs.all_models }}' | jq -R -s -c 'split(",")')" >> $GITHUB_OUTPUT
-          echo "accuracy_test_list=$(echo '${{ steps.parse-config.outputs.accuracy_test }}' | jq -R -s -c 'split(",")')" >> $GITHUB_OUTPUT
-          echo "dense_accuracy_test_list=$(echo '${{ steps.parse-config.outputs.dense_accuracy_test }}' | jq -R -s -c 'split(",")')" >> $GITHUB_OUTPUT
-          echo "vl_accuracy_test_list=$(echo '${{ steps.parse-config.outputs.vl_accuracy_test }}' | jq -R -s -c 'split(",")')" >> $GITHUB_OUTPUT
-          echo "moe_accuracy_test_list=$(echo '${{ steps.parse-config.outputs.moe_accuracy_test }}' | jq -R -s -c 'split(",")')" >> $GITHUB_OUTPUT
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const yaml = require('js-yaml');
+            const fs = require('fs');
+            const config = yaml.load(fs.readFileSync('workflows/accuracy/config.yaml', 'utf8'));
+            core.setOutput('schedule_models', JSON.stringify(config.schedule));
+            core.setOutput('all_models', JSON.stringify(config['manual-input'].all));
+            core.setOutput('accuracy_test', JSON.stringify(config.label['accuracy-test']));
+            core.setOutput('dense_accuracy_test', JSON.stringify(config.label['dense-accuracy-test']));
+            core.setOutput('vl_accuracy_test', JSON.stringify(config.label['vl-accuracy-test']));
+            core.setOutput('moe_accuracy_test', JSON.stringify(config.label['moe-accuracy-test']));
 
       - name: Check npu and CANN info
         run: |
@@ -280,7 +268,7 @@ jobs:
           echo "markdown_name=$markdown_name"
           echo "markdown_name=$markdown_name" >> $GITHUB_OUTPUT
           mkdir -p ./accuracy
-          python ./workflows/accuracy/test_lm_eval.py \
+          python ./workflows/accuracy/test_accuracy_and_report.py \
           --model=${model_base_name} \
           --output "./accuracy/${markdown_name}.md" \
           --vllm_ascend_version "${{ env.GHA_VLLM_ASCEND_VERSION || github.ref }}" \
