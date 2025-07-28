@@ -1,9 +1,11 @@
+import os
 from dataclasses import dataclass
-from pathlib import Path
-import yaml
-import numpy as np
-from jinja2 import Environment, FileSystemLoader
+
 import lm_eval
+import numpy as np
+import pytest
+import yaml
+from jinja2 import Environment, FileSystemLoader
 
 RTOL = 0.02
 
@@ -17,20 +19,18 @@ class EnvConfig:
     cann_version: str
     torch_version: str
     torch_npu_version: str
-    
-    
+
+
 @pytest.fixture
 def env_config():
-    return EnvConfig(
-        vllm_version=os.getenv('VLLM_VERSION'),
-        vllm_commit=os.getenv('VLLM_COMMIT'),
-        vllm_ascend_version=os.getenv('VLLM_ASCEND_VERSION'),
-        vllm_ascend_commit=os.getenv('VLLM_ASCEND_COMMIT'),
-        cann_version=os.getenv('CANN_VERSION'),
-        torch_version=os.getenv('TORCH_VERSION'),
-        torch_npu_version=os.getenv('TORCH_NPU_VERSION')
-    )
-    
+    return EnvConfig(vllm_version=os.getenv('VLLM_VERSION'),
+                     vllm_commit=os.getenv('VLLM_COMMIT'),
+                     vllm_ascend_version=os.getenv('VLLM_ASCEND_VERSION'),
+                     vllm_ascend_commit=os.getenv('VLLM_ASCEND_COMMIT'),
+                     cann_version=os.getenv('CANN_VERSION'),
+                     torch_version=os.getenv('TORCH_VERSION'),
+                     torch_npu_version=os.getenv('TORCH_NPU_VERSION'))
+
 
 def build_model_args(eval_config, tp_size):
     trust_remote_code = eval_config.get("trust_remote_code", False)
@@ -48,8 +48,8 @@ def build_model_args(eval_config, tp_size):
         if val:
             model_args[s] = val
     return model_args
-    
-    
+
+
 def build_eval_args(eval_config, tp_size):
     model_args = build_model_args(eval_config, tp_size)
     eval_params = {
@@ -61,18 +61,19 @@ def build_eval_args(eval_config, tp_size):
         "limit": eval_config.get("limit", None),
         "batch_size": "auto",
     }
-    
+
     for s in ["num_fewshot"]:
         eval_params[s] = eval_config.get(s, "N/A")
     return eval_params
 
 
-def generate_report(tp_size, eval_config, report_data, report_template, output_path, env_config):
+def generate_report(tp_size, eval_config, report_data, report_template,
+                    output_path, env_config):
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template(str(report_template))
     model_args = build_model_args(eval_config, tp_size)
     eval_params = build_eval_args(eval_config, tp_size)
-    
+
     report_content = template.render(
         vllm_version=env_config.vllm_version,
         vllm_commit=env_config.vllm_commit,
@@ -84,17 +85,17 @@ def generate_report(tp_size, eval_config, report_data, report_template, output_p
         model_name=eval_config["model_name"],
         model_args=f"'{','.join(f'{k}={v}' for k, v in model_args.items())}'",
         model_type=eval_params["model"],
-        datasets = ",".join(eval_params["tasks"]),
+        datasets=",".join(eval_params["tasks"]),
         limit=eval_params["limit"],
         batch_size="auto",
         num_fewshot=eval_params["num_fewshot"],
-        rows=report_data["rows"]
-    )
+        rows=report_data["rows"])
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(report_content)
-        
 
-def lm_eval_correctness_param(config_filename, tp_size, report_template, output_path, env_config):
+
+def lm_eval_correctness_param(config_filename, tp_size, report_template,
+                              output_path, env_config):
     eval_config = yaml.safe_load(config_filename.read_text(encoding="utf-8"))
     eval_params = build_eval_args(eval_config, tp_size)
     results = lm_eval.simple_evaluate(**eval_params)
@@ -111,10 +112,15 @@ def lm_eval_correctness_param(config_filename, tp_size, report_template, output_
                 ground_truth, measured_value, rtol=RTOL)
 
             report_data["rows"].append({
-                "task": task["name"],
-                "metric": metric["name"],
-                "value": f"✅{measured_value}" if is_success else f"❌{measured_value}",
-                "stderr": results["results"][task["name"]].get("stderr", 0.0)
+                "task":
+                task["name"],
+                "metric":
+                metric["name"],
+                "value":
+                f"✅{measured_value}" if is_success else f"❌{measured_value}",
+                "stderr":
+                results["results"][task["name"]].get("stderr", 0.0)
             })
-    generate_report(tp_size, eval_config, report_data, report_template, output_path, env_config)
+    generate_report(tp_size, eval_config, report_data, report_template,
+                    output_path, env_config)
     assert is_success
