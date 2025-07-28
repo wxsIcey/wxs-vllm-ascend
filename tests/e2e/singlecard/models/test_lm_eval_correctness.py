@@ -1,8 +1,9 @@
 import os
 from dataclasses import dataclass
+from math import isclose
+from typing import Any, Dict, List
 
 import lm_eval
-import numpy as np
 import pytest
 import yaml
 from jinja2 import Environment, FileSystemLoader
@@ -67,8 +68,9 @@ def build_eval_args(eval_config, tp_size):
     return eval_params
 
 
-def generate_report(tp_size, eval_config, report_data, report_template,
-                    output_path, env_config):
+def generate_report(tp_size, eval_config,
+                    report_data: Dict[str, List[Dict[str, Any]]],
+                    report_template, output_path, env_config):
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template(str(report_template))
     model_args = build_model_args(eval_config, tp_size)
@@ -99,7 +101,7 @@ def lm_eval_correctness_param(config_filename, tp_size, report_template,
     eval_config = yaml.safe_load(config_filename.read_text(encoding="utf-8"))
     eval_params = build_eval_args(eval_config, tp_size)
     results = lm_eval.simple_evaluate(**eval_params)
-    is_success = True
+    success = True
     report_data = {"rows": []}
 
     for task in eval_config["tasks"]:
@@ -108,7 +110,7 @@ def lm_eval_correctness_param(config_filename, tp_size, report_template,
             measured_value = results["results"][task["name"]][metric["name"]]
             print(f"{task['name']} | {metric['name']}: "
                   f"ground_truth={ground_truth} | measured={measured_value}")
-            is_success = is_success and np.isclose(
+            success = success and isclose(
                 ground_truth, measured_value, rtol=RTOL)
 
             report_data["rows"].append({
@@ -117,10 +119,11 @@ def lm_eval_correctness_param(config_filename, tp_size, report_template,
                 "metric":
                 metric["name"],
                 "value":
-                f"✅{measured_value}" if is_success else f"❌{measured_value}",
+                f"✅{measured_value}" if success else f"❌{measured_value}",
                 "stderr":
-                results["results"][task["name"]].get("stderr", 0.0)
+                results["results"][task["name"]][metric["name"].replace(
+                    ',', '_stderr,', 1)]
             })
     generate_report(tp_size, eval_config, report_data, report_template,
                     output_path, env_config)
-    assert is_success
+    assert success
