@@ -3,7 +3,6 @@ model: "vllm-vlm"
 tasks:
 - name: "mmmu_val"
   metrics:
-  - name: "none,acc"
-    value: 0.54
-limit: 1
-num_fewshot: 5
+  - name: "acc,none"
+    value: 0.51
+max_model_len: 8192
