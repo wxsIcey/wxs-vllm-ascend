@@ -6,4 +6,5 @@ tasks:
     value: 0.54
   - name: "exact_match,flexible-extract"
     value: 0.59
+limit: null
 num_fewshot: 5
