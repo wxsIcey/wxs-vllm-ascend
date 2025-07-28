@@ -95,6 +95,7 @@ jobs:
         run: |
           npu-smi info
           cat /usr/local/Ascend/ascend-toolkit/latest/"$(uname -i)"-linux/ascend_toolkit_install.info
+          
       - name: Config mirrors
         run: |
           sed -Ei 's@(ports|archive).ubuntu.com@cache-service.nginx-pypi-cache.svc.cluster.local:8081@g' /etc/apt/sources.list
@@ -102,10 +103,12 @@ jobs:
           pip config set global.trusted-host cache-service.nginx-pypi-cache.svc.cluster.local
           apt-get update -y
           apt install git -y
+
       - name: Install system dependencies
         run: |
           apt-get -y install `cat packages.txt`
           apt-get -y install gcc g++ cmake libnuma-dev
+
       - name: Checkout vllm-project/vllm repo
         uses: actions/checkout@v4
         with:
@@ -117,6 +120,7 @@ jobs:
         working-directory: ./vllm-empty
         run: |
           VLLM_TARGET_DEVICE=empty pip install -e .
+
       - name: Resolve vllm-ascend version
         run: |
           VERSION_INPUT="${{ github.event.inputs.vllm-ascend-version }}"
@@ -133,6 +137,7 @@ jobs:
             RESOLVED_VERSION="$VERSION_INPUT"
           fi
           echo "GHA_VLLM_ASCEND_VERSION=$RESOLVED_VERSION" >> $GITHUB_ENV
+
       - name: Checkout vllm-project/vllm-ascend repo
         uses: actions/checkout@v4
         with:
@@ -147,16 +152,19 @@ jobs:
         run: |
           pip install -r requirements-dev.txt
           pip install -v -e .
+
       - name: Get vLLM commit hash and URL
         working-directory: ./vllm-empty
         run: |
           VLLM_COMMIT=$(git rev-parse --short=7 HEAD)
           echo "VLLM_COMMIT=$VLLM_COMMIT" >> $GITHUB_ENV
+
       - name: Get vLLM-Ascend commit hash and URL
         working-directory: ./vllm-ascend
         run: |
           VLLM_ASCEND_COMMIT=$(git rev-parse --short=7 HEAD)
           echo "VLLM_ASCEND_COMMIT=$VLLM_ASCEND_COMMIT" >> $GITHUB_ENV
+
       - name: Collect version info
         run: |
           for dir in /usr/local/Ascend/ascend-toolkit/*; do
@@ -177,6 +185,7 @@ jobs:
             pip show torch_npu | grep "Version:" | awk '{print "GHA_TORCH_NPU_VERSION="$2}'
             pip show vllm | grep "Version:" | awk '{print "GHA_VLLM_VERSION="$2}' | sed 's/+.*//'
           } >> "$GITHUB_ENV"
+
       - name: Run accuracy test
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
