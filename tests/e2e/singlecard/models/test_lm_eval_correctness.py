@@ -96,8 +96,8 @@ def generate_report(tp_size, eval_config,
         f.write(report_content)
 
 
-def lm_eval_correctness_param(config_filename, tp_size, report_template,
-                              output_path, env_config):
+def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
+                                   output_path, env_config):
     eval_config = yaml.safe_load(config_filename.read_text(encoding="utf-8"))
     eval_params = build_eval_args(eval_config, tp_size)
     results = lm_eval.simple_evaluate(**eval_params)
