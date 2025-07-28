@@ -51,12 +51,12 @@ def config(pytestconfig):
 
 
 @pytest.fixture(scope="session")
-def config(pytestconfig):
+def report_template(pytestconfig):
     return pytestconfig.getoption("--report_template")
 
 
 @pytest.fixture(scope="session")
-def config(pytestconfig):
+def report_output(pytestconfig):
     return pytestconfig.getoption("--report_output")
 
 
