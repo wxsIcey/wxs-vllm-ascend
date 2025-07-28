@@ -1,0 +1,9 @@
+model_name: "Qwen/Qwen2.5-VL-7B-Instruct"
+model: "vllm-vlm"
+tasks:
+- name: "mmmu_val"
+  metrics:
+  - name: "none,acc"
+    value: 0.54
+limit: 1
+num_fewshot: 5
