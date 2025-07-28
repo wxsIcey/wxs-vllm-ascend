@@ -20,5 +20,5 @@ lm_eval --model {{ model_type }} --model_args $MODEL_ARGS --tasks {{ datasets }}
 | Task                  | Metric      | Value     | Stderr |
 |-----------------------|-------------|----------:|-------:|
 {% for row in rows -%}
-| {{ row.task.ljust(23) }} | {{ row.metric.rjust(15) }} |{{ row.value }} | ± {{ "%.4f" | format(row.stderr | float) }} |
+| {{ row.task.rjust(23) }} | {{ row.metric.rjust(15) }} |{{ row.value }} | ± {{ "%.4f" | format(row.stderr | float) }} |
 {% endfor %}

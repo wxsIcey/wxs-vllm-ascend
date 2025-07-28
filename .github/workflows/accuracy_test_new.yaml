@@ -206,5 +206,5 @@ jobs:
           pytest -sv test_lm_eval_correctness.py \
           --config configs/${{ matrix.model_name }}.yaml \
           --report_template report_template.md \
-          --output_path ./benchmarks/accuracy/${model_base_name}_accuracy.md 
+          --report_output ./benchmarks/accuracy/${model_base_name}_accuracy.md 
           
