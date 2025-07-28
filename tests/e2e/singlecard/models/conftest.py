@@ -22,6 +22,16 @@ def pytest_addoption(parser):
         action="store",
         help="Path to the model config YAML file",
     )
+    parser.addoption(
+        "--report_template",
+        action="store",
+        help="Path to the report template file",
+    )
+    parser.addoption(
+        "--report_output",
+        action="store",
+        help="Path to the report output file",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -34,10 +44,20 @@ def config_list_file(pytestconfig, config_dir):
 def tp_size(pytestconfig):
     return pytestconfig.getoption("--tp-size")
 
-# 加一个报告参数
+
 @pytest.fixture(scope="session")
 def config(pytestconfig):
     return pytestconfig.getoption("--config")
+
+
+@pytest.fixture(scope="session")
+def config(pytestconfig):
+    return pytestconfig.getoption("--report_template")
+
+
+@pytest.fixture(scope="session")
+def config(pytestconfig):
+    return pytestconfig.getoption("--report_output")
 
 
 def pytest_generate_tests(metafunc):
