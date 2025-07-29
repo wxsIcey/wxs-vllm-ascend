@@ -38,8 +38,7 @@ def build_model_args(eval_config, tp_size):
     model_args = {
         "pretrained": eval_config["model_name"],
         "tensor_parallel_size": tp_size,
-        "enforce_eager": True,
-        "add_bos_token": True,
+        "dtype": "auto",
         "trust_remote_code": trust_remote_code,
         "max_model_len": max_model_len,
     }
@@ -48,7 +47,7 @@ def build_model_args(eval_config, tp_size):
             "tensor_parallel_size"
     ]:
         val = eval_config.get(s, None)
-        if val:
+        if val is not None:
             model_args[s] = val
 
     print("Model Parameters:")
@@ -100,7 +99,7 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
     }
     for s in ["num_fewshot", "fewshot_as_multiturn"]:
         val = eval_config.get(s, None)
-        if val:
+        if val is not None:
             eval_params[s] = val
 
     print("Evaluation Parameters:")
