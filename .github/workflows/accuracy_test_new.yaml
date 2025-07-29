@@ -71,6 +71,8 @@ jobs:
             runner: linux-aarch64-a2-1
           - model_name: Qwen2.5-VL-7B-Instruct
             runner: linux-aarch64-a2-1
+          - model_name: Qwen3-30B-A3B
+            runner: linux-aarch64-a2-1
       fail-fast: false
 
     name: ${{ matrix.model_name }} accuracy
@@ -228,7 +230,7 @@ jobs:
       model_name: ${{ steps.set_output.outputs.model_name }}
       
   create_pr:
-    runs-on: ubuntu-latest
+    runs-on: linux-aarch64-a2-1
     needs: accuracy_tests
     # if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.vllm-ascend-version == "latest" }}
     env:
@@ -320,9 +322,3 @@ jobs:
             [1]: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
             });
             core.info(`Created PR #${pr.data.number}`);
-
-      
-
-
-      
-
