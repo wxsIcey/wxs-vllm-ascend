@@ -74,6 +74,8 @@ def generate_report(tp_size, eval_config, report_data, report_template,
         model_args=f"'{','.join(f'{k}={v}' for k, v in model_args.items())}'",
         model_type=eval_config.get("model", "vllm"),
         datasets=",".join([task["name"] for task in eval_config["tasks"]]),
+        apply_chat_template=eval_config["apply_chat_template"],
+        fewshot_as_multiturn=eval_config["fewshot_as_multiturn"],
         limit=eval_config.get("limit", None),
         batch_size="auto",
         num_fewshot=eval_config.get("num_fewshot", "N/A"),
@@ -97,7 +99,7 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
         "limit": eval_config.get("limit", None),
         "batch_size": "auto",
     }
-    for s in ["num_fewshot", "fewshot_as_multiturn"]:
+    for s in ["num_fewshot", "fewshot_as_multiturn", "apply_chat_template"]:
         val = eval_config.get(s, None)
         if val is not None:
             eval_params[s] = val
