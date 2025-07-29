@@ -1,4 +1,4 @@
-model_name: "/root/.cache/modelscope/hub/models/Qwen/Qwen3-8B-Base"
+model_name: "Qwen/Qwen3-8B-Base"
 tasks:
 - name: "gsm8k"
   metrics:

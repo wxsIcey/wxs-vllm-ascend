@@ -50,29 +50,11 @@ def build_model_args(eval_config, tp_size):
     return model_args
 
 
-def build_eval_args(eval_config, tp_size):
-    model_args = build_model_args(eval_config, tp_size)
-    eval_params = {
-        "model": eval_config.get("model", "vllm"),
-        "model_args": model_args,
-        "tasks": [task["name"] for task in eval_config["tasks"]],
-        "apply_chat_template": True,
-        "fewshot_as_multiturn": True,
-        "limit": eval_config.get("limit", None),
-        "batch_size": "auto",
-    }
-
-    for s in ["num_fewshot"]:
-        eval_params[s] = eval_config.get(s, "N/A")
-    return eval_params
-
-
 def generate_report(tp_size, eval_config, report_data, report_template,
                     report_output, env_config):
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template(str(report_template))
     model_args = build_model_args(eval_config, tp_size)
-    eval_params = build_eval_args(eval_config, tp_size)
 
     report_content = template.render(
         vllm_version=env_config.vllm_version,
@@ -84,18 +66,12 @@ def generate_report(tp_size, eval_config, report_data, report_template,
         torch_npu_version=env_config.torch_npu_version,
         model_name=eval_config["model_name"],
         model_args=f"'{','.join(f'{k}={v}' for k, v in model_args.items())}'",
-        model_type=eval_params["model"],
-        datasets=",".join(eval_params["tasks"]),
-        limit=eval_params["limit"],
+        model_type=eval_config.get("model", "vllm"),
+        datasets=",".join([task["name"] for task in eval_config["tasks"]]),
+        limit=eval_config.get("limit", None),
         batch_size="auto",
-        num_fewshot=eval_params["num_fewshot"],
+        num_fewshot=eval_config.get("num_fewshot", "N/A"),
         rows=report_data["rows"])
-
-    dir_path = os.path.dirname(report_output)
-    if os.path.exists(dir_path):
-        print(f"✅ 目录已确保存在：{dir_path}")
-    else:
-        print(f"❌ 目录创建失败：{dir_path}")
 
     os.makedirs(os.path.dirname(report_output), exist_ok=True)
     with open(report_output, 'w', encoding='utf-8') as f:
@@ -105,7 +81,21 @@ def generate_report(tp_size, eval_config, report_data, report_template,
 def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
                                    report_output, env_config):
     eval_config = yaml.safe_load(config_filename.read_text(encoding="utf-8"))
-    eval_params = build_eval_args(eval_config, tp_size)
+    model_args = build_model_args(eval_config, tp_size)
+    eval_params = {
+        "model": eval_config.get("model", "vllm"),
+        "model_args": model_args,
+        "tasks": [task["name"] for task in eval_config["tasks"]],
+        "apply_chat_template": True,
+        "fewshot_as_multiturn": True,
+        "limit": eval_config.get("limit", None),
+        "batch_size": "auto",
+    }
+    for s in ["num_fewshot"]:
+        val = eval_config.get(s, None)
+        if val:
+            eval_params[s] = val
+
     results = lm_eval.simple_evaluate(**eval_params)
     success = True
     report_data: dict[str, list[dict]] = {"rows": []}
