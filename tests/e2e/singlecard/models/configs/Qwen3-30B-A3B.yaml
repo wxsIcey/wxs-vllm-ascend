@@ -10,3 +10,4 @@ num_fewshot: 5
 gpu_memory_utilization: 0.6
 enable_expert_parallel: True
 tensor_parallel_size: 2
+fewshot_as_multiturn: False

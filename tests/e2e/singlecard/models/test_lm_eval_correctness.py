@@ -50,6 +50,10 @@ def build_model_args(eval_config, tp_size):
         val = eval_config.get(s, None)
         if val:
             model_args[s] = val
+
+    print("Model Parameters:")
+    print(model_args)
+
     return model_args
 
 
@@ -94,10 +98,13 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
         "limit": eval_config.get("limit", None),
         "batch_size": "auto",
     }
-    for s in ["num_fewshot"]:
+    for s in ["num_fewshot", "fewshot_as_multiturn"]:
         val = eval_config.get(s, None)
         if val:
             eval_params[s] = val
+
+    print("Evaluation Parameters:")
+    print(eval_params)
 
     results = lm_eval.simple_evaluate(**eval_params)
     success = True
