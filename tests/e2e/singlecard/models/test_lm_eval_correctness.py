@@ -1,12 +1,11 @@
 import os
 from dataclasses import dataclass
-from numpy import np
-from typing import Any, Dict, List
 
 import lm_eval
 import pytest
 import yaml
 from jinja2 import Environment, FileSystemLoader
+from numpy import np
 
 RTOL = 0.02
 
@@ -68,9 +67,8 @@ def build_eval_args(eval_config, tp_size):
     return eval_params
 
 
-def generate_report(tp_size, eval_config,
-                    report_data,
-                    report_template, output_path, env_config):
+def generate_report(tp_size, eval_config, report_data, report_template,
+                    output_path, env_config):
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template(str(report_template))
     model_args = build_model_args(eval_config, tp_size)
@@ -97,20 +95,21 @@ def generate_report(tp_size, eval_config,
 
 
 def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
-                              output_path, env_config):
+                                   output_path, env_config):
     eval_config = yaml.safe_load(config_filename.read_text(encoding="utf-8"))
     eval_params = build_eval_args(eval_config, tp_size)
     results = lm_eval.simple_evaluate(**eval_params)
     success = True
     report_data: dict[str, list[dict]] = {"rows": []}
-    
+
     for task in eval_config["tasks"]:
         for metric in task["metrics"]:
-        ground_truth = metric["value"]
-        measured_value = results["results"][task["name"]][metric["name"]]
-        print(f"{task['name']} | {metric['name']}: "
-                f"ground_truth={ground_truth} | measured={measured_value}")
-        success = success and bool(np.isclose(ground_truth, measured_value, rtol=RTOL))
+            ground_truth = metric["value"]
+            measured_value = results["results"][task["name"]][metric["name"]]
+            print(f"{task['name']} | {metric['name']}: "
+                  f"ground_truth={ground_truth} | measured={measured_value}")
+            success = success and bool(
+                np.isclose(ground_truth, measured_value, rtol=RTOL))
 
             report_data["rows"].append({
                 "task":
@@ -126,4 +125,3 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
     generate_report(tp_size, eval_config, report_data, report_template,
                     output_path, env_config)
     assert success
-            

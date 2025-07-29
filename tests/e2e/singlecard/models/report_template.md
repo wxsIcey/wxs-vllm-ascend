@@ -16,6 +16,7 @@ lm_eval --model {{ model_type }} --model_args $MODEL_ARGS --tasks {{ datasets }}
 --apply_chat_template --fewshot_as_multiturn {% if num_fewshot is defined and num_fewshot != "N/A" %} --num_fewshot {{ num_fewshot }} {% endif %} \
 --limit {{ limit }} --batch_size {{ batch_size}}
 ```
+
 | Task                  | Metric      | Value     | Stderr |
 |-----------------------|-------------|----------:|-------:|
 {% for row in rows -%}
