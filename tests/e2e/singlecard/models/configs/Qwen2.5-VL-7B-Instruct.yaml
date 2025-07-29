@@ -6,3 +6,4 @@ tasks:
   - name: "acc,none"
     value: 0.51
 max_model_len: 8192
+gpu_memory_utilization: 0.6
