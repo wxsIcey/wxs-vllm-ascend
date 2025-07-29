@@ -90,6 +90,14 @@ def generate_report(tp_size, eval_config, report_data, report_template,
         batch_size="auto",
         num_fewshot=eval_params["num_fewshot"],
         rows=report_data["rows"])
+
+    dir_path = os.path.dirname(report_output)
+    if os.path.exists(dir_path):
+        print(f"✅ 目录已确保存在：{dir_path}")
+    else:
+        print(f"❌ 目录创建失败：{dir_path}")
+
+    os.makedirs(os.path.dirname(report_output), exist_ok=True)
     with open(report_output, 'w', encoding='utf-8') as f:
         f.write(report_content)
 
