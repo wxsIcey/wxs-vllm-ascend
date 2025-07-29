@@ -7,4 +7,3 @@ tasks:
   - name: "exact_match,flexible-extract"
     value: 0.83
 num_fewshot: 5
-gpu_memory_utilization: 0.6

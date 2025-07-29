@@ -43,7 +43,10 @@ def build_model_args(eval_config, tp_size):
         "trust_remote_code": trust_remote_code,
         "max_model_len": max_model_len,
     }
-    for s in ["max_images", "gpu_memory_utilization"]:
+    for s in [
+            "max_images", "gpu_memory_utilization", "enable_expert_parallel",
+            "tensor_parallel_size"
+    ]:
         val = eval_config.get(s, None)
         if val:
             model_args[s] = val
