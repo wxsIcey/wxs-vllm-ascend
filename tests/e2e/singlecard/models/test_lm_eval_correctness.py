@@ -68,7 +68,7 @@ def build_eval_args(eval_config, tp_size):
 
 
 def generate_report(tp_size, eval_config, report_data, report_template,
-                    output_path, env_config):
+                    report_output, env_config):
     env = Environment(loader=FileSystemLoader('.'))
     template = env.get_template(str(report_template))
     model_args = build_model_args(eval_config, tp_size)
@@ -90,12 +90,12 @@ def generate_report(tp_size, eval_config, report_data, report_template,
         batch_size="auto",
         num_fewshot=eval_params["num_fewshot"],
         rows=report_data["rows"])
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(report_output, 'w', encoding='utf-8') as f:
         f.write(report_content)
 
 
 def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
-                                   output_path, env_config):
+                                   report_output, env_config):
     eval_config = yaml.safe_load(config_filename.read_text(encoding="utf-8"))
     eval_params = build_eval_args(eval_config, tp_size)
     results = lm_eval.simple_evaluate(**eval_params)
@@ -123,5 +123,5 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
                     ',', '_stderr,', 1)]
             })
     generate_report(tp_size, eval_config, report_data, report_template,
-                    output_path, env_config)
+                    report_output, env_config)
     assert success
