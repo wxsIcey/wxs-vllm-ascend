@@ -187,6 +187,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Run accuracy test
+        id: report
         env:
           VLLM_WORKER_MULTIPROC_METHOD: spawn
           VLLM_USE_MODELSCOPE: True
@@ -199,9 +200,126 @@ jobs:
           TORCH_NPU_VERSION: ${{ env.GHA_TORCH_NPU_VERSION }}
         run: |
           model_base_name=$(basename ${{ matrix.model_name }})
+          markdown_name="${model_base_name}"
+          echo "markdown_name=$markdown_name" >> $GITHUB_OUTPUT
           mkdir -p ./benchmarks/accuracy
           pip install lm-eval==0.4.8
           pytest -sv ./tests/e2e/singlecard/models/test_lm_eval_correctness.py \
           --config ./tests/e2e/singlecard/models/configs/${{ matrix.model_name }}.yaml \
           --report_template ./tests/e2e/singlecard/models/report_template.md \
-          --report_output ./benchmarks/accuracy/${model_base_name}_accuracy.md 
+          --report_output ./benchmarks/accuracy/${model_base_name}.md 
+
+      - name: Sanitize version string for artifact naming
+        run: |
+          SAFE_VLLM_ASCEND_VERSION="${GHA_VLLM_ASCEND_VERSION//\//-}"
+          echo "SAFE_VLLM_ASCEND_VERSION=$SAFE_VLLM_ASCEND_VERSION" >> "$GITHUB_ENV"
+
+      - name: Upload Report 
+        # if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.vllm-ascend-version == "latest" }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: "report-${{ env.SAFE_VLLM_ASCEND_VERSION }}-${{ steps.report.outputs.markdown_name }}"
+          path: ./benchmarks/accuracy/${{ steps.report.outputs.markdown_name }}.md
+          if-no-files-found: warn
+          retention-days: 90
+          overwrite: true
+
+  create_pr:
+    runs-on: ubuntu-latest
+    needs: accuracy_tests
+    # if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.vllm-ascend-version == "latest" }}
+    env:
+      UPSTREAM_REPO: vllm-project/vllm-ascend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          repository: vllm-ascend-ci/vllm-ascend
+          token: ${{ secrets.PAT_TOKEN }}
+          ref: main
+      
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/${{ env.UPSTREAM_REPO }}.git
+          git fetch upstream
+          git remote -v
+
+      - name: Set Git user info dynamically
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Create or switch to branch
+        run: |
+          TIMESTAMP=$(date +%Y%m%d%H%M%S)
+          BRANCH_NAME="auto-pr/accuracy-report-${TIMESTAMP}"
+          echo "BRANCH_NAME=${BRANCH_NAME}" >> $GITHUB_ENV
+          git checkout -B "${BRANCH_NAME}" upstream/${{ github.event.inputs.vllm-ascend-version }}
+
+      - name: Download only current run reports
+        uses: actions/download-artifact@v4
+        with:
+          path: ./docs/source/developer_guide/evaluation/accuracy_report
+          pattern: report-*
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.run_id }}
+
+      - name: Delete old report
+        run: |
+          find ./docs/source/developer_guide/evaluation/accuracy_report -maxdepth 1 -type f -name '*.md' ! -name 'index.md' -delete
+          find ./docs/source/developer_guide/evaluation/accuracy_report -mindepth 2 -type f -name '*.md' -exec mv -f {} ./docs/source/developer_guide/evaluation/accuracy_report \;
+          find ./docs/source/developer_guide/evaluation/accuracy_report -mindepth 1 -type d -empty -delete
+      
+      - name: Update accuracy_report/index.md
+        run: |
+          REPORT_DIR="./docs/source/developer_guide/evaluation/accuracy_report"
+          INDEX_MD="$REPORT_DIR/index.md"
+          {
+            echo "# Accuracy Report"
+            echo ""
+            echo ":::{toctree}"
+            echo ":caption: Accuracy Report"
+            echo ":maxdepth: 1"
+            
+            for report in "$REPORT_DIR"/*.md; do
+              filename="$(basename "$report" .md)"
+              if [ "$filename" != "index" ]; then
+                echo "$filename"
+              fi
+            done
+            echo ":::"
+          } > "$INDEX_MD"
+
+      - name: push accuracy report
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          git add ./docs/source/developer_guide/evaluation/accuracy_report/*.md
+          git commit -s -m "[Doc] Update accuracy reports for ${{ github.event.inputs.vllm-ascend-version }}"
+          git push -f origin "${{ env.BRANCH_NAME }}"
+
+      - name: Create PR in upstream via API
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PAT_TOKEN }}
+          script: |
+            const pr = await github.rest.pulls.create({
+              owner: 'vllm-project',
+              repo: 'vllm-ascend',
+              head: `vllm-ascend-ci:${{ env.BRANCH_NAME }}`,
+              base: '${{ github.event.inputs.vllm-ascend-version }}',
+              title: `[Doc] Update accuracy reports for ${{ github.event.inputs.vllm-ascend-version }}`,
+              body: `The accuracy results running on NPU Altlas A2 have changed, updating reports for: ${{ matrix.model_name }}
+            
+            - [Workflow run][1]
+            
+            [1]: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+            });
+            core.info(`Created PR #${pr.data.number}`);
+
+      
+
+
+      
+
