@@ -200,9 +200,8 @@ jobs:
         run: |
           model_base_name=$(basename ${{ matrix.model_name }})
           mkdir -p ./benchmarks/accuracy
-          cd tests/e2e/singlecard/models/
           pip install lm-eval==0.4.8
-          pytest -sv test_lm_eval_correctness.py \
-          --config configs/${{ matrix.model_name }}.yaml \
-          --report_template report_template.md \
+          pytest -sv ./tests/e2e/singlecard/models/test_lm_eval_correctness.py \
+          --config ./tests/e2e/singlecard/models/configs/${{ matrix.model_name }}.yaml \
+          --report_template ./tests/e2e/singlecard/models/report_template.md \
           --report_output ./benchmarks/accuracy/${model_base_name}_accuracy.md 
