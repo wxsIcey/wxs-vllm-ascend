@@ -23,13 +23,16 @@ class EnvConfig:
 
 @pytest.fixture
 def env_config() -> EnvConfig:
-    return EnvConfig(vllm_version=os.getenv('VLLM_VERSION', ''),
-                     vllm_commit=os.getenv('VLLM_COMMIT', ''),
-                     vllm_ascend_version=os.getenv('VLLM_ASCEND_VERSION', ''),
-                     vllm_ascend_commit=os.getenv('VLLM_ASCEND_COMMIT', ''),
-                     cann_version=os.getenv('CANN_VERSION', ''),
-                     torch_version=os.getenv('TORCH_VERSION', ''),
-                     torch_npu_version=os.getenv('TORCH_NPU_VERSION', ''))
+    return EnvConfig(vllm_version=os.getenv('VLLM_VERSION', '0.10.0'),
+                     vllm_commit=os.getenv('VLLM_COMMIT', '6d8d0a2'),
+                     vllm_ascend_version=os.getenv('VLLM_ASCEND_VERSION',
+                                                   '0.9.2rc1'),
+                     vllm_ascend_commit=os.getenv('VLLM_ASCEND_COMMIT',
+                                                  '771dac4'),
+                     cann_version=os.getenv('CANN_VERSION', '8.2.RC1'),
+                     torch_version=os.getenv('TORCH_VERSION', '2.5.1'),
+                     torch_npu_version=os.getenv('TORCH_NPU_VERSION',
+                                                 '2.5.1.post1.dev20250619'))
 
 
 def build_model_args(eval_config, tp_size):
