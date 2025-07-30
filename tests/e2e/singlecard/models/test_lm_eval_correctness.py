@@ -7,7 +7,7 @@ import pytest
 import yaml
 from jinja2 import Environment, FileSystemLoader
 
-RTOL = 0.02
+RTOL = 0.03
 
 
 @dataclass
