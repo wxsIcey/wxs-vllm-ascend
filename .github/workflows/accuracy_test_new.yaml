@@ -315,10 +315,10 @@ jobs:
               head: `vllm-ascend-ci:${{ env.BRANCH_NAME }}`,
               base: '${{ github.event.inputs.vllm-ascend-version }}',
               title: `[Doc] Update accuracy reports for ${{ github.event.inputs.vllm-ascend-version }}`,
-              body: `The accuracy results running on NPU Altlas A2 have changed, updating reports for: ${{ needs.accuracy_tests.outputs.model_name }}
+              body: `The accuracy results running on NPU Altlas A2 have changed, updating reports for: All models (Qwen/Qwen3-30B-A3B, Qwen2.5-VL-7B-Instruct, Qwen3-8B-Base)
             
-            - [Workflow run][1]
-            
-            [1]: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+              - [Workflow run][1]
+              
+              [1]: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
             });
             core.info(`Created PR #${pr.data.number}`);
