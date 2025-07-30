@@ -9,6 +9,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--config-list-file",
         action="store",
+        default=None,
         help="Path to the file listing model config YAMLs (one per line)",
     )
     parser.addoption(
@@ -20,16 +21,19 @@ def pytest_addoption(parser):
     parser.addoption(
         "--config",
         action="store",
+        default="./tests/e2e/singlecard/models/configs/Qwen3-8B-Base.yaml",
         help="Path to the model config YAML file",
     )
     parser.addoption(
         "--report_template",
         action="store",
+        default="./tests/e2e/singlecard/models/report_template.md",
         help="Path to the report template file",
     )
     parser.addoption(
         "--report_output",
         action="store",
+        default="./benchmarks/accuracy/Qwen3-8B-Base.md",
         help="Path to the report output file",
     )
 
