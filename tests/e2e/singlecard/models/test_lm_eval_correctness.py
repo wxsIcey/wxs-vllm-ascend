@@ -8,6 +8,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader
 
 RTOL = 0.03
+TEST_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
 @dataclass
@@ -61,9 +62,9 @@ def build_model_args(eval_config, tp_size):
 
 def generate_report(tp_size, eval_config, report_data, report_output,
                     env_config):
-    env = Environment(loader=FileSystemLoader('.'))
-    template = env.get_template(
-        "./tests/e2e/singlecard/models/report_template.md")
+    env = Environment(loader=FileSystemLoader(TEST_DIR))
+    template_path = os.path.join(TEST_DIR, "report_template.md")
+    template = env.get_template(template_path)
     model_args = build_model_args(eval_config, tp_size)
 
     report_content = template.render(
