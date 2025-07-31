@@ -1,7 +1,5 @@
 import os
 from dataclasses import dataclass
-from functools import partial
-from multiprocessing import Pool
 
 import lm_eval
 import numpy as np
@@ -92,26 +90,6 @@ def generate_report(tp_size, eval_config, report_data, report_output,
         f.write(report_content)
 
 
-def evaluate_single_task(task, eval_config, model_args):
-    eval_params = {
-        "model": eval_config.get("model", "vllm"),
-        "model_args": model_args,
-        "tasks": task["name"],
-        "apply_chat_template": eval_config.get("apply_chat_template", True),
-        "fewshot_as_multiturn": eval_config.get("fewshot_as_multiturn", True),
-        "limit": eval_config.get("limit", None),
-        "batch_size": "auto",
-    }
-
-    for s in ["num_fewshot", "fewshot_as_multiturn", "apply_chat_template"]:
-        val = task.get(s, eval_config.get(s, None))
-        if val is not None:
-            eval_params[s] = val
-
-    print(f"Evaluating task: {task['name']} with params: {eval_params}")
-    return task["name"], lm_eval.simple_evaluate(**eval_params)
-
-
 def test_lm_eval_correctness_param(config_filename, tp_size, report_output,
                                    env_config):
     eval_config = yaml.safe_load(config_filename.read_text(encoding="utf-8"))
@@ -119,24 +97,34 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_output,
     success = True
     report_data: dict[str, list[dict]] = {"rows": []}
 
-    with Pool(processes=len(eval_config["tasks"])) as pool:
-        eval_func = partial(evaluate_single_task,
-                            eval_config=eval_config,
-                            model_args=model_args)
-        task_results = pool.map(eval_func, eval_config["tasks"])
+    eval_params = {
+        "model": eval_config.get("model", "vllm"),
+        "model_args": model_args,
+        "tasks": [task["name"] for task in eval_config["tasks"]],
+        "apply_chat_template": eval_config.get("apply_chat_template", True),
+        "fewshot_as_multiturn": eval_config.get("fewshot_as_multiturn", True),
+        "limit": eval_config.get("limit", None),
+        "batch_size": "auto",
+    }
+    for s in ["num_fewshot", "fewshot_as_multiturn", "apply_chat_template"]:
+        val = eval_config.get(s, eval_config.get(s, None))
+    if val is not None:
+        eval_params[s] = val
 
-    results_dict = {name: result for name, result in task_results}
+    print(f"Evaluating task: {task['name']} with params: {eval_params}")
+    results = lm_eval.simple_evaluate(**eval_params)
 
     for task in eval_config["tasks"]:
-        result = results_dict[task["name"]]
+        task_name = task["name"]
+        task_result = results["results"][task_name]
         for metric in task["metrics"]:
             ground_truth = metric["value"]
-            measured_value = result["results"][task["name"]][metric["name"]]
+            measured_value = task_result[metric_name]
             task_success = bool(
                 np.isclose(ground_truth, measured_value, rtol=RTOL))
             success = success and task_success
 
-            print(f"{task['name']} | {metric['name']}: "
+            print(f"{task_name} | {metric_name}: "
                   f"ground_truth={ground_truth} | measured={measured_value} | "
                   f"success={'✅' if task_success else '❌'}")
 
@@ -148,8 +136,8 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_output,
                 "value":
                 f"✅{measured_value}" if success else f"❌{measured_value}",
                 "stderr":
-                result["results"][task["name"]][metric["name"].replace(
-                    ',', '_stderr,', 1)]
+                metric["name"].replace(',', '_stderr,') if metric["name"]
+                == "acc,none" else metric["name"].replace(',', '_stderr,')
             })
     generate_report(tp_size, eval_config, report_data, report_output,
                     env_config)
