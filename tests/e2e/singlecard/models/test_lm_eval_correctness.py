@@ -8,7 +8,7 @@ import yaml
 from jinja2 import Environment, FileSystemLoader
 
 RTOL = 0.03
-TEST_DIR = os.path.dirname(os.path.dirname(__file__))
+TEST_DIR = os.path.dirname(__file__)
 
 
 @dataclass
