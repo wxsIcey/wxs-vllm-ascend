@@ -110,36 +110,37 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_output,
         val = eval_config.get(s, eval_config.get(s, None))
     if val is not None:
         eval_params[s] = val
-        
+
     print("Eval Parameters:")
     print(eval_params)
-    
+
     results = lm_eval.simple_evaluate(**eval_params)
 
     for task in eval_config["tasks"]:
         task_name = task["name"]
         task_result = results["results"][task_name]
         for metric in task["metrics"]:
+            metric_name = metric["name"]
             ground_truth = metric["value"]
             measured_value = task_result[metric_name]
             task_success = bool(
                 np.isclose(ground_truth, measured_value, rtol=RTOL))
             success = success and task_success
 
-            print(f"{task_name} | {metric["name"]}: "
+            print(f"{task_name} | {metric_name}: "
                   f"ground_truth={ground_truth} | measured={measured_value} | "
                   f"success={'✅' if task_success else '❌'}")
 
             report_data["rows"].append({
                 "task":
-                task["name"],
+                task_name,
                 "metric":
-                metric["name"],
+                metric_name,
                 "value":
                 f"✅{measured_value}" if success else f"❌{measured_value}",
                 "stderr":
-                metric["name"].replace(',', '_stderr,') if metric["name"]
-                == "acc,none" else metric["name"].replace(',', '_stderr,')
+                metric_name.replace(',', '_stderr,') if metric_name
+                == "acc,none" else metric_name.replace(',', '_stderr,')
             })
     generate_report(tp_size, eval_config, report_data, report_output,
                     env_config)
