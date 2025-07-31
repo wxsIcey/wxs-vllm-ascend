@@ -3,9 +3,9 @@ tasks:
 - name: "ceval-valid"
   metrics:
   - name: "acc,none"
-    value: 0.61
+    value: 0.82
   - name: "acc_norm,none"
-    value: 0.61
+    value: 0.82
 - name: "gsm8k"
   metrics:
   - name: "exact_match,strict-match"

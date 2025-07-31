@@ -107,9 +107,9 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_output,
         "batch_size": "auto",
     }
     for s in ["num_fewshot", "fewshot_as_multiturn", "apply_chat_template"]:
-        val = eval_config.get(s, eval_config.get(s, None))
-    if val is not None:
-        eval_params[s] = val
+        val = eval_config.get(s, None)
+        if val is not None:
+            eval_params[s] = val
 
     print("Eval Parameters:")
     print(eval_params)
