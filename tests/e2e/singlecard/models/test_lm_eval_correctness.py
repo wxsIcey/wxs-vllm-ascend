@@ -139,8 +139,9 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_output,
                 "value":
                 f"✅{measured_value}" if success else f"❌{measured_value}",
                 "stderr":
-                metric_name.replace(',', '_stderr,') if metric_name
-                == "acc,none" else metric_name.replace(',', '_stderr,')
+                task_result[
+                    metric_name.replace(',', '_stderr,') if metric_name ==
+                    "acc,none" else metric_name.replace(',', '_stderr,')]
             })
     generate_report(tp_size, eval_config, report_data, report_output,
                     env_config)
