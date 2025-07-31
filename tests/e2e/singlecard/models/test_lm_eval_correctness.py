@@ -110,8 +110,10 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_output,
         val = eval_config.get(s, eval_config.get(s, None))
     if val is not None:
         eval_params[s] = val
-
-    print(f"Evaluating task: {task['name']} with params: {eval_params}")
+        
+    print("Eval Parameters:")
+    print(eval_params)
+    
     results = lm_eval.simple_evaluate(**eval_params)
 
     for task in eval_config["tasks"]:
@@ -124,7 +126,7 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_output,
                 np.isclose(ground_truth, measured_value, rtol=RTOL))
             success = success and task_success
 
-            print(f"{task_name} | {metric_name}: "
+            print(f"{task_name} | {metric["name"]}: "
                   f"ground_truth={ground_truth} | measured={measured_value} | "
                   f"success={'✅' if task_success else '❌'}")
 
