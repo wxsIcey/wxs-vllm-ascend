@@ -25,12 +25,6 @@ def pytest_addoption(parser):
         help="Path to the model config YAML file",
     )
     parser.addoption(
-        "--report_template",
-        action="store",
-        default="./tests/e2e/singlecard/models/report_template.md",
-        help="Path to the report template file",
-    )
-    parser.addoption(
         "--report_output",
         action="store",
         default="./benchmarks/accuracy/Qwen3-8B-Base.md",
@@ -52,11 +46,6 @@ def tp_size(pytestconfig):
 @pytest.fixture(scope="session")
 def config(pytestconfig):
     return pytestconfig.getoption("--config")
-
-
-@pytest.fixture(scope="session")
-def report_template(pytestconfig):
-    return pytestconfig.getoption("--report_template")
 
 
 @pytest.fixture(scope="session")

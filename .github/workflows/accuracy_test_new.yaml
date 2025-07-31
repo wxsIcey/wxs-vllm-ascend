@@ -24,9 +24,6 @@ on:
   schedule:
     # Runs every 6 hours
     - cron:  '0 */6 * * *'
-  # Remove this
-  push:
-    branches: [ acc-test ]
   pull_request:
     types: [ labeled ]
   workflow_dispatch:
@@ -35,7 +32,6 @@ on:
         description: 'vllm-ascend:'
         required: true
         type: choice
-        # Please also update this when bump matched version
         # Current supported vLLM versions
         options:
           - latest
@@ -205,11 +201,15 @@ jobs:
           markdown_name="${model_base_name}"
           echo "markdown_name=$markdown_name" >> $GITHUB_OUTPUT
           mkdir -p ./benchmarks/accuracy
-          pip install lm-eval==0.4.8
           pytest -sv ./tests/e2e/singlecard/models/test_lm_eval_correctness.py \
           --config ./tests/e2e/singlecard/models/configs/${{ matrix.model_name }}.yaml \
           --report_template ./tests/e2e/singlecard/models/report_template.md \
           --report_output ./benchmarks/accuracy/${model_base_name}.md 
+
+      - name: Generate step summary
+        if: ${{ always() }}
+        run: |
+          cat ./benchmarks/accuracy/${{ steps.report.outputs.markdown_name }}.md >> $GITHUB_STEP_SUMMARY
 
       - name: Sanitize version string for artifact naming
         run: |

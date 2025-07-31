@@ -1,5 +1,7 @@
 import os
 from dataclasses import dataclass
+from functools import partial
+from multiprocessing import Pool
 
 import lm_eval
 import numpy as np
@@ -21,18 +23,32 @@ class EnvConfig:
     torch_npu_version: str
 
 
+def pytest_addoption(parser):
+    parser.addoption(
+        "--report_template",
+        action="store",
+        default="./tests/e2e/singlecard/models/report_template.md",
+        help="Path to the report template file",
+    )
+
+
 @pytest.fixture
 def env_config() -> EnvConfig:
-    return EnvConfig(vllm_version=os.getenv('VLLM_VERSION', '0.10.0'),
-                     vllm_commit=os.getenv('VLLM_COMMIT', '6d8d0a2'),
+    return EnvConfig(vllm_version=os.getenv('VLLM_VERSION', 'unknown'),
+                     vllm_commit=os.getenv('VLLM_COMMIT', 'unknown'),
                      vllm_ascend_version=os.getenv('VLLM_ASCEND_VERSION',
-                                                   '0.9.2rc1'),
+                                                   'unknown'),
                      vllm_ascend_commit=os.getenv('VLLM_ASCEND_COMMIT',
-                                                  '771dac4'),
-                     cann_version=os.getenv('CANN_VERSION', '8.2.RC1'),
-                     torch_version=os.getenv('TORCH_VERSION', '2.5.1'),
+                                                  'unknown'),
+                     cann_version=os.getenv('CANN_VERSION', 'unknown'),
+                     torch_version=os.getenv('TORCH_VERSION', 'unknown'),
                      torch_npu_version=os.getenv('TORCH_NPU_VERSION',
-                                                 '2.5.1.post1.dev20250619'))
+                                                 'unknown'))
+
+
+@pytest.fixture(scope="session")
+def report_template(pytestconfig):
+    return pytestconfig.getoption("--report_template")
 
 
 def build_model_args(eval_config, tp_size):
@@ -89,39 +105,53 @@ def generate_report(tp_size, eval_config, report_data, report_template,
         f.write(report_content)
 
 
+def evaluate_single_task(task, eval_config, model_args):
+    eval_params = {
+        "model": eval_config.get("model", "vllm"),
+        "model_args": model_args,
+        "tasks": task["name"],
+        "apply_chat_template": eval_config.get("apply_chat_template", True),
+        "fewshot_as_multiturn": eval_config.get("fewshot_as_multiturn", True),
+        "limit": eval_config.get("limit", None),
+        "batch_size": "auto",
+    }
+
+    for s in ["num_fewshot", "fewshot_as_multiturn", "apply_chat_template"]:
+        val = task.get(s, eval_config.get(s, None))
+        if val is not None:
+            eval_params[s] = val
+
+    print(f"Evaluating task: {task['name']} with params: {eval_params}")
+    return task["name"], lm_eval.simple_evaluate(**eval_params)
+
+
 def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
                                    report_output, env_config):
     eval_config = yaml.safe_load(config_filename.read_text(encoding="utf-8"))
     model_args = build_model_args(eval_config, tp_size)
-    eval_params = {
-        "model": eval_config.get("model", "vllm"),
-        "model_args": model_args,
-        "tasks": [task["name"] for task in eval_config["tasks"]],
-        "apply_chat_template": True,
-        "fewshot_as_multiturn": True,
-        "limit": eval_config.get("limit", None),
-        "batch_size": "auto",
-    }
-    for s in ["num_fewshot", "fewshot_as_multiturn", "apply_chat_template"]:
-        val = eval_config.get(s, None)
-        if val is not None:
-            eval_params[s] = val
-
-    print("Evaluation Parameters:")
-    print(eval_params)
-
-    results = lm_eval.simple_evaluate(**eval_params)
     success = True
     report_data: dict[str, list[dict]] = {"rows": []}
 
+    with Pool(processes=len(eval_config["tasks"])) as pool:
+        eval_func = partial(evaluate_single_task,
+                            eval_config=eval_config,
+                            model_args=model_args)
+        task_results = pool.map(eval_func, eval_config["tasks"])
+
+    results_dict = {name: result for name, result in task_results}
+
     for task in eval_config["tasks"]:
+        result = results_dict[task["name"]]
         for metric in task["metrics"]:
             ground_truth = metric["value"]
-            measured_value = results["results"][task["name"]][metric["name"]]
-            print(f"{task['name']} | {metric['name']}: "
-                  f"ground_truth={ground_truth} | measured={measured_value}")
-            success = success and bool(
+            measured_value = result["results"][task["name"]][metric["name"]]
+            task_success = bool(
                 np.isclose(ground_truth, measured_value, rtol=RTOL))
+            success = success and task_success
+
+            print(f"{task['name']} | {metric['name']}: "
+                  f"ground_truth={ground_truth} | measured={measured_value} | "
+                  f"success={'✅' if task_success else '❌'}")
 
             report_data["rows"].append({
                 "task":
@@ -131,7 +161,7 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
                 "value":
                 f"✅{measured_value}" if success else f"❌{measured_value}",
                 "stderr":
-                results["results"][task["name"]][metric["name"].replace(
+                result["results"][task["name"]][metric["name"].replace(
                     ',', '_stderr,', 1)]
             })
     generate_report(tp_size, eval_config, report_data, report_template,
