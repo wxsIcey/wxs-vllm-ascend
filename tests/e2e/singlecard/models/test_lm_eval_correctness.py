@@ -63,8 +63,7 @@ def build_model_args(eval_config, tp_size):
 def generate_report(tp_size, eval_config, report_data, report_output,
                     env_config):
     env = Environment(loader=FileSystemLoader(TEST_DIR))
-    template_path = os.path.join(TEST_DIR, "report_template.md")
-    template = env.get_template(template_path)
+    template = env.get_template("report_template.md")
     model_args = build_model_args(eval_config, tp_size)
 
     report_content = template.render(
