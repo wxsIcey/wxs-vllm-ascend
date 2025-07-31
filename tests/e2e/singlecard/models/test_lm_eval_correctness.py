@@ -23,15 +23,6 @@ class EnvConfig:
     torch_npu_version: str
 
 
-def pytest_addoption(parser):
-    parser.addoption(
-        "--report_template",
-        action="store",
-        default="./tests/e2e/singlecard/models/report_template.md",
-        help="Path to the report template file",
-    )
-
-
 @pytest.fixture
 def env_config() -> EnvConfig:
     return EnvConfig(vllm_version=os.getenv('VLLM_VERSION', 'unknown'),
@@ -44,11 +35,6 @@ def env_config() -> EnvConfig:
                      torch_version=os.getenv('TORCH_VERSION', 'unknown'),
                      torch_npu_version=os.getenv('TORCH_NPU_VERSION',
                                                  'unknown'))
-
-
-@pytest.fixture(scope="session")
-def report_template(pytestconfig):
-    return pytestconfig.getoption("--report_template")
 
 
 def build_model_args(eval_config, tp_size):
@@ -75,10 +61,11 @@ def build_model_args(eval_config, tp_size):
     return model_args
 
 
-def generate_report(tp_size, eval_config, report_data, report_template,
-                    report_output, env_config):
+def generate_report(tp_size, eval_config, report_data, report_output,
+                    env_config):
     env = Environment(loader=FileSystemLoader('.'))
-    template = env.get_template(str(report_template))
+    template = env.get_template(
+        "./tests/e2e/singlecard/models/report_template.md")
     model_args = build_model_args(eval_config, tp_size)
 
     report_content = template.render(
@@ -125,8 +112,8 @@ def evaluate_single_task(task, eval_config, model_args):
     return task["name"], lm_eval.simple_evaluate(**eval_params)
 
 
-def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
-                                   report_output, env_config):
+def test_lm_eval_correctness_param(config_filename, tp_size, report_output,
+                                   env_config):
     eval_config = yaml.safe_load(config_filename.read_text(encoding="utf-8"))
     model_args = build_model_args(eval_config, tp_size)
     success = True
@@ -164,6 +151,6 @@ def test_lm_eval_correctness_param(config_filename, tp_size, report_template,
                 result["results"][task["name"]][metric["name"].replace(
                     ',', '_stderr,', 1)]
             })
-    generate_report(tp_size, eval_config, report_data, report_template,
-                    report_output, env_config)
+    generate_report(tp_size, eval_config, report_data, report_output,
+                    env_config)
     assert success
