@@ -62,7 +62,7 @@ def report_output(pytestconfig, config_filename):
         report_path = Path(report_dir) / f"{model_name}.md"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         return report_path
-    
+
     output_path = pytestconfig.getoption("--report_output")
     if output_path:
         output_path = Path(output_path)
@@ -84,6 +84,5 @@ def pytest_generate_tests(metafunc):
             return
         single_config = metafunc.config.getoption("--config")
         config_path = Path(single_config).resolve()
-        
+
         metafunc.parametrize("config_filename", [config_path])
-        
